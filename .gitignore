@@ -1,0 +1,27 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.ipynb_checkpoints
+
+# Data & models
+data/raw/*
+data/interim/*
+data/processed/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+reports/figures/*
+
+# Envs
+.env
+.venv/
+env/
+venv/
+*.env
+
+# OS/Editor
+.DS_Store
+.vscode/
+
+
+mlruns/
