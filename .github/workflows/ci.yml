@@ -1,0 +1,77 @@
+name: CI - Build & Smoke Test API
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python (for generating smoke payload)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Build Docker image
+        run: |
+          docker build -f api/Dockerfile -t ids-api:ci .
+
+      - name: Run container
+        run: |
+          docker run -d --name ids-api -p 8000:8000 ids-api:ci
+          docker ps
+
+      - name: Wait for /health
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null; then
+              echo "API is up"; break
+            fi
+            echo "Waiting for API... ($i)"; sleep 2
+          done
+          # fail if still not up
+          curl -sf http://127.0.0.1:8000/health
+
+      - name: Generate smoke payload from features.json
+        run: |
+          python - << 'PY'
+          import json, sys, os
+          feats_path = os.path.join("models", "features.json")
+          with open(feats_path) as f:
+            features = json.load(f)
+          # create a minimal numeric payload with zeros for all features
+          payload = {feat: 0 for feat in features}
+          with open("smoke.json", "w") as f:
+            json.dump(payload, f)
+          print("Wrote smoke.json with", len(features), "features")
+          PY
+
+      - name: POST /predict (smoke test)
+        run: |
+          echo "Payload:"
+          head -c 500 smoke.json || true
+          echo ""
+          RESP=$(curl -s -o resp.json -w "%{http_code}" -X POST \
+            "http://127.0.0.1:8000/predict" \
+            -H "Content-Type: application/json" \
+            --data-binary @smoke.json)
+          echo "HTTP: $RESP"
+          cat resp.json
+          test "$RESP" = "200"
+          grep -q '"prediction"' resp.json
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "Container logs:"
+          docker logs ids-api || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f ids-api || true
