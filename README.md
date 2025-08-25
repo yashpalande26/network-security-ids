@@ -14,3 +14,5 @@ End-to-end IDS project:
 - `models/` trained artifacts (preprocessor, model)
 - `configs/` schema/config files
 - `reports/` figures for thesis
+
+

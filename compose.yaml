@@ -1,0 +1,21 @@
+# compose.yaml
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: ids-api
+    ports:
+      - "8000:8000"
+
+  ui:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    container_name: ids-ui
+    environment:
+      - API_URL=http://api:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
